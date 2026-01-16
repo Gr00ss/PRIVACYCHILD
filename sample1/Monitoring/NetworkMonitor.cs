@@ -72,7 +72,7 @@ public class NetworkMonitor : BackgroundService, IActivityMonitor
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = "-Command \"Get-DnsClientCache | Where-Object { $_.Type -eq 'A' -and $_.Status -eq 0 } | Select-Object -ExpandProperty Name -Unique\"",
+                    Arguments = "-Command \"Get-DnsClientCache | Where-Object { ($_.Type -eq 1 -or $_.Type -eq 28) -and $_.Status -eq 0 -and $_.Name } | Select-Object -ExpandProperty Name -Unique\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     CreateNoWindow = true,
