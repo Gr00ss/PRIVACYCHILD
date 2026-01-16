@@ -182,19 +182,18 @@ public class TelegramBotService : BackgroundService
             new[] { InlineKeyboardButton.WithCallbackData("🌐 Сеть", "network") }
         });
 
-        var welcomeMessage = @"👋 *Добро пожаловать в Family Monitor\!*
+        var welcomeMessage = @"👋 Добро пожаловать в Family Monitor!
 
 Доступные команды:
-• /apps \- Отчет по приложениям
-• /network \- Отчет по сайтам
-• /settime HH:mm \- Установить время отчетов
+• /apps - Отчет по приложениям
+• /network - Отчет по сайтам
+• /settime HH:mm - Установить время отчетов
 
 Или используйте кнопки ниже:";
 
         await _botClient.SendMessage(
             chatId,
             welcomeMessage,
-            parseMode: ParseMode.MarkdownV2,
             replyMarkup: keyboard,
             cancellationToken: cancellationToken);
     }
@@ -208,7 +207,6 @@ public class TelegramBotService : BackgroundService
         await _botClient.SendMessage(
             chatId,
             report,
-            parseMode: ParseMode.MarkdownV2,
             cancellationToken: cancellationToken);
     }
 
@@ -221,7 +219,6 @@ public class TelegramBotService : BackgroundService
         await _botClient.SendMessage(
             chatId,
             report,
-            parseMode: ParseMode.MarkdownV2,
             cancellationToken: cancellationToken);
     }
 
@@ -309,8 +306,7 @@ public class TelegramBotService : BackgroundService
                 {
                     await _botClient.SendMessage(
                         userId,
-                        $"📊 *Ежедневный отчет*\n\n{report}",
-                        parseMode: ParseMode.MarkdownV2);
+                        $"📊 Ежедневный отчет\n\n{report}");
                 }
                 catch (Exception ex)
                 {

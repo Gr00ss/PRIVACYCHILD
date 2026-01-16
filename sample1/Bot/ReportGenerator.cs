@@ -21,27 +21,42 @@ public class ReportGenerator
     {
         try
         {
+            _logger.LogInformation("GenerateAppsReportAsync called");
             var apps = await _dataService.GetTodayAppsAsync();
+            _logger.LogInformation("Retrieved {Count} apps from database", apps.Count);
             
             if (apps.Count == 0)
+            {
+                _logger.LogInformation("No apps found for today");
                 return "📱 Сегодня приложения не использовались";
+            }
 
-            var today = DateTime.Today.ToString("dd.MM");
-            var report = $"📱 *Отчет по приложениям за {today}*\n\n";
+            var today = DateTime.Today.ToString("dd.MM.yyyy");
+            var report = $"📱 Отчет по приложениям за {today}\n\n";
 
+            var displayedCount = 0;
             foreach (var app in apps)
             {
-                if (app.Seconds < 60) // Skip apps with less than 1 minute
-                    continue;
 
-                report += $"• {EscapeMarkdown(app.AppName ?? "Unknown")}: {app.FormattedDuration}\n";
+                report += $"• {app.AppName ?? "Unknown"}: {app.FormattedDuration}\n";
+                displayedCount++;
             }
+
+            _logger.LogInformation("Displayed {Count} apps (filtered from {Total})", displayedCount, apps.Count);
 
             var totalSeconds = apps.Sum(a => a.Seconds);
             var totalHours = totalSeconds / 3600;
             var totalMinutes = (totalSeconds % 3600) / 60;
+            var totalSecs = totalSeconds % 60;
             
-            report += $"\n*Всего:* {totalHours}ч {totalMinutes}м";
+            var totalText = totalHours > 0 
+                ? $"{totalHours}ч {totalMinutes}м"
+                : totalMinutes > 0 
+                    ? $"{totalMinutes}м {totalSecs}с"
+                    : $"{totalSecs}с";
+            
+            report += $"\nВсего: {totalText}";
+            _logger.LogInformation("Total: {Hours}h {Minutes}m ({Seconds}s)", totalHours, totalMinutes, totalSeconds);
 
             return report;
         }
@@ -61,22 +76,27 @@ public class ReportGenerator
             if (domains.Count == 0)
                 return "🌐 Сегодня сетевая активность не зафиксирована";
 
-            var today = DateTime.Today.ToString("dd.MM");
-            var report = $"🌐 *Отчет по сайтам за {today}*\n\n";
+            var today = DateTime.Today.ToString("dd.MM.yyyy");
+            var report = $"🌐 Отчет по сайтам за {today}\n\n";
 
             foreach (var domain in domains)
             {
-                if (domain.Seconds < 60) // Skip domains with less than 1 minute
-                    continue;
 
-                report += $"• {EscapeMarkdown(domain.Domain ?? "Unknown")}: {domain.FormattedDuration}\n";
+                report += $"• {domain.Domain ?? "Unknown"}: {domain.FormattedDuration}\n";
             }
 
             var totalSeconds = domains.Sum(d => d.Seconds);
             var totalHours = totalSeconds / 3600;
             var totalMinutes = (totalSeconds % 3600) / 60;
+            var totalSecs = totalSeconds % 60;
             
-            report += $"\n*Всего:* {totalHours}ч {totalMinutes}м";
+            var totalText = totalHours > 0 
+                ? $"{totalHours}ч {totalMinutes}м"
+                : totalMinutes > 0 
+                    ? $"{totalMinutes}м {totalSecs}с"
+                    : $"{totalSecs}с";
+            
+            report += $"\nВсего: {totalText}";
 
             return report;
         }

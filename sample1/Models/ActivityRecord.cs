@@ -19,10 +19,13 @@ public class ActivityRecord
         {
             var hours = Seconds / 3600;
             var minutes = (Seconds % 3600) / 60;
+            var seconds = Seconds % 60;
             
             if (hours > 0)
-                return $"{hours}ч {minutes}м";
-            return $"{minutes}м";
+                return $"{hours}ч {minutes}м {seconds}с";
+            if (minutes > 0)
+                return $"{minutes}м {seconds}с";
+            return $"{seconds}с";
         }
     }
 }

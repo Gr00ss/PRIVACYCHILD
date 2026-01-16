@@ -45,20 +45,23 @@ public class Database : IDataService
             // Create tables
             var createTablesScript = @"
                 CREATE TABLE IF NOT EXISTS Applications (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Id INTEGER PRIMARY KEY,
                     Name TEXT NOT NULL UNIQUE
                 );
 
                 CREATE TABLE IF NOT EXISTS Domains (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Id INTEGER PRIMARY KEY,
                     Name TEXT NOT NULL UNIQUE
                 );
+
+                INSERT OR IGNORE INTO Applications (Id, Name) VALUES (-1, '(none)');
+                INSERT OR IGNORE INTO Domains (Id, Name) VALUES (-1, '(none)');
 
                 CREATE TABLE IF NOT EXISTS DailyStats (
                     Id INTEGER PRIMARY KEY AUTOINCREMENT,
                     Date TEXT NOT NULL,
-                    AppId INTEGER,
-                    DomainId INTEGER,
+                    AppId INTEGER NOT NULL DEFAULT -1,
+                    DomainId INTEGER NOT NULL DEFAULT -1,
                     Seconds INTEGER NOT NULL DEFAULT 0,
                     FOREIGN KEY(AppId) REFERENCES Applications(Id),
                     FOREIGN KEY(DomainId) REFERENCES Domains(Id),
@@ -119,6 +122,11 @@ public class Database : IDataService
 
             // Insert or update daily stats
             var dateStr = date.ToString("yyyy-MM-dd");
+            
+            // Use -1 instead of NULL for FOREIGN KEY compatibility
+            var appIdValue = appId ?? -1;
+            var domainIdValue = domainId ?? -1;
+            
             var sql = @"
                 INSERT INTO DailyStats (Date, AppId, DomainId, Seconds)
                 VALUES (@date, @appId, @domainId, @seconds)
@@ -128,8 +136,8 @@ public class Database : IDataService
 
             using var command = new SqliteCommand(sql, connection, transaction);
             command.Parameters.AddWithValue("@date", dateStr);
-            command.Parameters.AddWithValue("@appId", appId.HasValue ? (object)appId.Value : DBNull.Value);
-            command.Parameters.AddWithValue("@domainId", domainId.HasValue ? (object)domainId.Value : DBNull.Value);
+            command.Parameters.AddWithValue("@appId", appIdValue);
+            command.Parameters.AddWithValue("@domainId", domainIdValue);
             command.Parameters.AddWithValue("@seconds", seconds);
 
             await command.ExecuteNonQueryAsync();
@@ -145,6 +153,7 @@ public class Database : IDataService
     {
         var records = new List<ActivityRecord>();
         var today = DateTime.Today.ToString("yyyy-MM-dd");
+        _logger.LogInformation("GetTodayAppsAsync called for date: {Date}", today);
 
         try
         {
@@ -155,7 +164,7 @@ public class Database : IDataService
                 SELECT a.Name, SUM(ds.Seconds) as TotalSeconds
                 FROM DailyStats ds
                 JOIN Applications a ON ds.AppId = a.Id
-                WHERE ds.Date = @date AND ds.AppId IS NOT NULL
+                WHERE ds.Date = @date AND ds.AppId > -1
                 GROUP BY a.Name
                 ORDER BY TotalSeconds DESC
             ";
@@ -173,6 +182,8 @@ public class Database : IDataService
                     Date = DateTime.Today
                 });
             }
+            
+            _logger.LogInformation("Found {Count} app records for today", records.Count);
         }
         catch (Exception ex)
         {
@@ -196,7 +207,7 @@ public class Database : IDataService
                 SELECT d.Name, SUM(ds.Seconds) as TotalSeconds
                 FROM DailyStats ds
                 JOIN Domains d ON ds.DomainId = d.Id
-                WHERE ds.Date = @date AND ds.DomainId IS NOT NULL
+                WHERE ds.Date = @date AND ds.DomainId > -1
                 GROUP BY d.Name
                 ORDER BY TotalSeconds DESC
             ";

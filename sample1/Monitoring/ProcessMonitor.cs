@@ -56,8 +56,10 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
                 await CheckActiveWindowAsync();
 
                 // Save data periodically
-                if ((DateTime.Now - _lastSaveTime).TotalMilliseconds >= _saveInterval)
+                var timeSinceLastSave = (DateTime.Now - _lastSaveTime).TotalMilliseconds;
+                if (timeSinceLastSave >= _saveInterval)
                 {
+                    _logger.LogInformation("Triggering save: {TimeSince}ms >= {Interval}ms", timeSinceLastSave, _saveInterval);
                     await SaveAccumulatedDataAsync();
                 }
 
@@ -80,20 +82,31 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
         {
             var hwnd = GetForegroundWindow();
             if (hwnd == IntPtr.Zero)
+            {
+                _logger.LogDebug("GetForegroundWindow returned Zero - no active window");
                 return;
+            }
 
             // Get process ID
             GetWindowThreadProcessId(hwnd, out uint processId);
             if (processId == 0)
+            {
+                _logger.LogDebug("GetWindowThreadProcessId returned 0");
                 return;
+            }
 
             // Get process name
             var process = System.Diagnostics.Process.GetProcessById((int)processId);
             var processName = process.ProcessName;
 
+            _logger.LogDebug("Active window: {ProcessName} (PID: {ProcessId})", processName, processId);
+
             // Filter system processes
             if (_systemProcesses.Contains(processName))
+            {
+                _logger.LogDebug("Skipping system process: {ProcessName}", processName);
                 return;
+            }
 
             // Track time for current app
             var now = DateTime.Now;
@@ -108,10 +121,18 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
                     
                     _appUsage[_currentApp] += seconds;
                 }
+                
+                // Switch to new app
+                _currentApp = processName;
+                _currentAppStartTime = now;
             }
-
-            _currentApp = processName;
-            _currentAppStartTime = now;
+            else if (_currentApp == null)
+            {
+                // First time tracking
+                _currentApp = processName;
+                _currentAppStartTime = now;
+            }
+            // else: same app, keep accumulating time
         }
         catch (Exception ex)
         {
@@ -123,13 +144,44 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
     {
         try
         {
+            _logger.LogInformation("SaveAccumulatedDataAsync called");
+
+            // Add current app time before saving
+            if (_currentApp != null)
+            {
+                var now = DateTime.Now;
+                var seconds = (int)(now - _currentAppStartTime).TotalSeconds;
+                _logger.LogInformation("Current app: {App}, Seconds since start: {Seconds}", _currentApp, seconds);
+                
+                if (seconds > 0)
+                {
+                    if (!_appUsage.ContainsKey(_currentApp))
+                        _appUsage[_currentApp] = 0;
+                    
+                    _appUsage[_currentApp] += seconds;
+                    _currentAppStartTime = now; // Reset timer
+                    _logger.LogInformation("Added {Seconds}s to {App}, Total in dict: {Total}s", seconds, _currentApp, _appUsage[_currentApp]);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("No current app to save - _currentApp is NULL");
+            }
+
             if (_appUsage.Count == 0)
+            {
+                _logger.LogInformation("No usage data to save - _appUsage.Count = 0");
+                _lastSaveTime = DateTime.Now; // Update timer even if no data
                 return;
+            }
 
             var today = DateTime.Today;
+            _logger.LogDebug("Saving {Count} apps to database", _appUsage.Count);
+            
             foreach (var kvp in _appUsage)
             {
                 await _dataService.SaveActivityAsync(kvp.Key, null, kvp.Value, today);
+                _logger.LogDebug("Saved {App}: {Seconds}s", kvp.Key, kvp.Value);
             }
 
             _logger.LogInformation("Saved activity data for {Count} apps", _appUsage.Count);
