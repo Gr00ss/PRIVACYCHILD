@@ -44,14 +44,21 @@ jobs:
       
     - name: Create Release package
       run: |
-        $releaseDir = "Release"
+        $releaseDir = "ReleasePackage"
         $archivePath = "Release.zip"
         
         # Create Release directory
         New-Item -Path $releaseDir -ItemType Directory -Force | Out-Null
         
         # Copy executable
+        Write-Host "Copying executable..." -ForegroundColor Cyan
         $publishExe = "bin\Release\net8.0-windows\win-x64\publish\sample1.exe"
+        
+        if (-not (Test-Path $publishExe)) {
+            Write-Error "Executable not found at: $publishExe"
+            exit 1
+        }
+        
         Copy-Item -Path $publishExe -Destination "$releaseDir\sample1.exe" -Force
         
         # Create clean appsettings.json
@@ -95,6 +102,7 @@ jobs:
         $cleanConfig | ConvertTo-Json -Depth 10 | Set-Content "$releaseDir\appsettings.json" -Encoding UTF8
         
         # Copy installation scripts
+        Write-Host "Copying installation scripts..." -ForegroundColor Cyan
         Copy-Item -Path "install.ps1" -Destination $releaseDir -Force
         Copy-Item -Path "uninstall.ps1" -Destination $releaseDir -Force
         
@@ -153,15 +161,20 @@ jobs:
         "@
         $readmeContent | Set-Content "$releaseDir\README.txt" -Encoding UTF8
         
+        # Verify package contents
+        Write-Host "`nRelease package contents:" -ForegroundColor Cyan
+        Get-ChildItem $releaseDir | Format-Table Name, Length, LastWriteTime
+        
+        # Get sizes before archiving
+        $exeSize = (Get-Item "$releaseDir\sample1.exe").Length / 1MB
+        Write-Host "`nExecutable size: $([math]::Round($exeSize, 2)) MB" -ForegroundColor Green
+        
         # Create archive
+        Write-Host "Creating Release.zip archive..." -ForegroundColor Cyan
         Compress-Archive -Path "$releaseDir\*" -DestinationPath $archivePath -Force
         
-        # Get sizes
-        $exeSize = (Get-Item "$releaseDir\sample1.exe").Length / 1MB
         $archiveSize = (Get-Item $archivePath).Length / 1MB
-        
-        Write-Host "Executable size: $([math]::Round($exeSize, 2)) MB"
-        Write-Host "Archive size: $([math]::Round($archiveSize, 2)) MB"
+        Write-Host "Archive size: $([math]::Round($archiveSize, 2)) MB" -ForegroundColor Green
         
         # Calculate SHA256
         $hash = Get-FileHash $archivePath -Algorithm SHA256
@@ -169,42 +182,53 @@ jobs:
         
         Write-Host "SHA256: $($hash.Hash)"
       shell: pwsh
-      
-    - name: Create Release Notes
-      id: release_notes
-      run: |
-        $notes = @"
-        ## Windows Family Monitor ${{ steps.get_version.outputs.VERSION }}
+      📦 Windows Family Monitor ${{ steps.get_version.outputs.VERSION }}
         
-        ### Installation
+        ### 🚀 Quick Install
         
-        1. Download ``Release.zip``
+        1. Download **Release.zip** from Assets below
         2. Extract to any folder
         3. Run PowerShell as Administrator
-        4. Execute: ``.\install.ps1``
-        5. Follow the setup wizard
+        4. Navigate to extracted folder: ``cd "path\to\folder"``
+        5. Execute: ``.\install.ps1``
+        6. Follow the setup wizard
         
-        ### What's Included
+        ### 📋 Package Contents
         
-        - ``sample1.exe`` - Self-contained application (~51 MB)
-        - ``install.ps1`` - Automated installation script
+        - ``sample1.exe`` (51 MB) - Self-contained application, no .NET required
+        - ``install.ps1`` - Automated installation script  
         - ``uninstall.ps1`` - Complete removal script
         - ``appsettings.json`` - Configuration template
-        - ``README.txt`` - User guide
+        - ``README.txt`` - Detailed user guide
         
-        ### Requirements
+        ### ⚙️ System Requirements
         
         - Windows 10/11 (64-bit)
-        - Administrator privileges
-        - Telegram Bot Token (from @BotFather)
+        - Administrator privileges for installation
+        - Internet connection for Telegram bot
+        - Telegram Bot Token (get from [@BotFather](https://t.me/BotFather))
+        - Your Telegram User ID (get from [@userinfobot](https://t.me/userinfobot))
         
-        ### Verification
+        ### 🔐 Verify Download
         
-        SHA256 checksum is provided in ``Release.zip.sha256``
+        SHA256 checksum is provided in ``Release.zip.sha256`` to verify file integrity.
         
-        ### Support
+        ```powershell
+        # Check SHA256 after download
+        `$hash = (Get-FileHash Release.zip -Algorithm SHA256).Hash
+        `$expected = Get-Content Release.zip.sha256
+        if (`$hash -eq `$expected) { Write-Host "✓ Verified" -ForegroundColor Green }
+        ```
         
-        Report issues at: https://github.com/${{ github.repository }}/issues
+        ### 📖 Documentation
+        
+        - [Full README](https://github.com/${{ github.repository }})
+        - [Installation Guide](https://github.com/${{ github.repository }}#installation)
+        - [Troubleshooting](https://github.com/${{ github.repository }}#troubleshooting)
+        
+        ### 🐛 Support
+        
+        Report issues: https://github.com/${{ github.repository }}/issues
         "@
         
         $notes | Set-Content "RELEASE_NOTES.md" -Encoding UTF8
