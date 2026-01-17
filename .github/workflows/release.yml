@@ -240,8 +240,7 @@ jobs:
         
         $notes | Set-Content "RELEASE_NOTES.md" -Encoding UTF8
         
-        # Output for GitHub
-        $notes | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        Write-Host "Release notes created successfully" -ForegroundColor Green
       shell: pwsh
       
     - name: Create GitHub Release
