@@ -23,6 +23,7 @@ public class TelegramBotService : BackgroundService
     private TelegramBotClient? _botClient;
     private Timer? _reportTimer;
     private readonly Dictionary<long, int> _failedAttempts = new();
+    private DateTime _lastReportDate = DateTime.MinValue;
 
     public TelegramBotService(
         ILogger<TelegramBotService> logger,
@@ -277,12 +278,22 @@ public class TelegramBotService : BackgroundService
             if (!TimeSpan.TryParse(_config.Telegram.ReportTime, out var reportTime))
                 return;
 
-            var now = DateTime.Now.TimeOfDay;
+            var now = DateTime.Now;
+            var currentTime = now.TimeOfDay;
+            
+            // Check if report already sent today
+            if (_lastReportDate.Date == now.Date)
+            {
+                _logger.LogDebug("Daily report already sent today");
+                return;
+            }
             
             // Check if it's time to send report (within 1 minute window)
-            if (Math.Abs((now - reportTime).TotalMinutes) < 1)
+            if (Math.Abs((currentTime - reportTime).TotalMinutes) < 1)
             {
+                _logger.LogInformation("Sending daily report at {Time}", now.ToString("HH:mm:ss"));
                 await SendDailyReportToAllUsersAsync();
+                _lastReportDate = now; // Mark report as sent for today
             }
         }
         catch (Exception ex)
