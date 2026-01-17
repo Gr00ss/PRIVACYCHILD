@@ -1,0 +1,60 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore sample1.csproj
+      
+    - name: Build
+      run: dotnet build sample1.csproj --configuration Release --no-restore
+      
+    - name: Publish self-contained
+      run: |
+        dotnet publish sample1.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:PublishTrimmed=false `
+          -p:DebugType=None `
+          -p:DebugSymbols=false
+          
+    - name: Check executable size
+      run: |
+        $exePath = "bin\Release\net8.0-windows\win-x64\publish\sample1.exe"
+        if (Test-Path $exePath) {
+          $size = (Get-Item $exePath).Length / 1MB
+          Write-Host "Executable size: $([math]::Round($size, 2)) MB"
+          if ($size -lt 10) {
+            Write-Error "Executable too small - not self-contained!"
+            exit 1
+          }
+        } else {
+          Write-Error "Executable not found!"
+          exit 1
+        }
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: sample1-exe
+        path: bin\Release\net8.0-windows\win-x64\publish\sample1.exe
+        retention-days: 7

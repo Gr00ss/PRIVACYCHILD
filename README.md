@@ -1,5 +1,10 @@
 # Family Activity Monitor
 
+[![Build](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/build.yml/badge.svg)](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/build.yml)
+[![Release](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/release.yml/badge.svg)](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/release.yml)
+[![CodeQL](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/codeql.yml/badge.svg)](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Скрытое Windows-приложение для мониторинга активности компьютера с отправкой отчётов в Telegram.
 
 ## Описание проекта
@@ -318,7 +323,21 @@ PRIVACYCHILD/
 
 ## Лицензия
 
-MIT License — свободное использование с указанием авторства.
+MIT License — свободное использование с указанием авторства. См. [LICENSE](LICENSE).
+
+## Участие в разработке
+
+Приветствуем ваш вклад! Прочитайте [CONTRIBUTING.md](CONTRIBUTING.md) для деталей.
+
+## Безопасность
+
+Политика безопасности и отчеты об уязвимостях: [SECURITY.md](SECURITY.md)
+
+## Полезные ссылки
+
+- [Быстрая шпаргалка](QUICKREF.md) - команды и shortcuts
+- [GitHub Actions руководство](.github/WORKFLOWS_GUIDE.md) - автоматизация CI/CD
+- [Шаблоны Issues](.github/ISSUE_TEMPLATE/) - отчёты об ошибках и предложения
 
 ## Поддержка
 
