@@ -218,12 +218,14 @@ jobs:
         
         SHA256 checksum is provided in ``Release.zip.sha256`` to verify file integrity.
         
-        ```powershell
-        # Check SHA256 after download
-        `$hash = (Get-FileHash Release.zip -Algorithm SHA256).Hash
-        `$expected = Get-Content Release.zip.sha256
-        if (`$hash -eq `$expected) { Write-Host "✓ Verified" -ForegroundColor Green }
-        ```
+        **Verify download:**
+        ``````
+        powershell -Command "
+          `$hash = (Get-FileHash Release.zip).Hash;
+          `$expected = Get-Content Release.zip.sha256;
+          if (`$hash -eq `$expected) { Write-Host 'Verified OK' }
+        "
+        ``````
         
         ### 📖 Documentation
         
