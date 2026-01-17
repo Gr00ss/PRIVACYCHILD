@@ -182,7 +182,12 @@ jobs:
         
         Write-Host "SHA256: $($hash.Hash)"
       shell: pwsh
-      📦 Windows Family Monitor ${{ steps.get_version.outputs.VERSION }}
+      
+    - name: Create Release Notes
+      id: release_notes
+      run: |
+        $notes = @"
+        ## 📦 Windows Family Monitor ${{ steps.get_version.outputs.VERSION }}
         
         ### 🚀 Quick Install
         

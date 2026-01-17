@@ -1,8 +1,8 @@
 # Family Activity Monitor
 
-[![Build](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/build.yml/badge.svg)](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/build.yml)
-[![Release](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/release.yml/badge.svg)](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/release.yml)
-[![CodeQL](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/codeql.yml/badge.svg)](https://github.com/YOURUSERNAME/PRIVACYCHILD/actions/workflows/codeql.yml)
+[![Build](https://github.com/Gr00ss/PRIVACYCHILD/actions/workflows/build.yml/badge.svg)](https://github.com/Gr00ss/PRIVACYCHILD/actions/workflows/build.yml)
+[![Release](https://github.com/Gr00ss/PRIVACYCHILD/actions/workflows/release.yml/badge.svg)](https://github.com/Gr00ss/PRIVACYCHILD/actions/workflows/release.yml)
+[![CodeQL](https://github.com/Gr00ss/PRIVACYCHILD/actions/workflows/codeql.yml/badge.svg)](https://github.com/Gr00ss/PRIVACYCHILD/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Скрытое Windows-приложение для мониторинга активности компьютера с отправкой отчётов в Telegram.
