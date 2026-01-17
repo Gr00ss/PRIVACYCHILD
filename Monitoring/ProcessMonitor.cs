@@ -83,7 +83,8 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
             var hwnd = GetForegroundWindow();
             if (hwnd == IntPtr.Zero)
             {
-                _logger.LogDebug("GetForegroundWindow returned Zero - no active window");
+                // Windows Service cannot access user desktop (Session 0)
+                // This is normal when running as Windows Service
                 return;
             }
 
@@ -91,7 +92,6 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
             GetWindowThreadProcessId(hwnd, out uint processId);
             if (processId == 0)
             {
-                _logger.LogDebug("GetWindowThreadProcessId returned 0");
                 return;
             }
 
@@ -99,12 +99,11 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
             var process = System.Diagnostics.Process.GetProcessById((int)processId);
             var processName = process.ProcessName;
 
-            _logger.LogDebug("Active window: {ProcessName} (PID: {ProcessId})", processName, processId);
+            // Don't log every check to avoid log spam
 
             // Filter system processes
             if (_systemProcesses.Contains(processName))
             {
-                _logger.LogDebug("Skipping system process: {ProcessName}", processName);
                 return;
             }
 
@@ -120,6 +119,7 @@ public class ProcessMonitor : BackgroundService, IActivityMonitor
                         _appUsage[_currentApp] = 0;
                     
                     _appUsage[_currentApp] += seconds;
+                    _logger.LogDebug("Switched from {OldApp} ({Seconds}s) to {NewApp}", _currentApp, seconds, processName);
                 }
                 
                 // Switch to new app

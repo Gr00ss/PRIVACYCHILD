@@ -1,0 +1,53 @@
+﻿======================================================================
+  WINDOWS FAMILY MONITOR - QUICK INSTALLATION GUIDE
+======================================================================
+
+REQUIREMENTS:
+  * Windows 10/11 (64-bit)
+  * Administrator privileges
+  * Telegram account
+  * Internet connection
+
+INSTALLATION STEPS:
+
+1. PREPARE TELEGRAM BOT
+   - Open Telegram, search for @BotFather
+   - Send /newbot and follow instructions
+   - Save the bot token (e.g., 123456789:ABCdef...)
+   - Search for @userinfobot and get your User ID
+
+2. RUN INSTALLATION
+   - Right-click on PowerShell
+   - Select "Run as Administrator"
+   - Navigate to this folder:
+     cd "path\to\this\folder"
+   
+   - Allow script execution (if needed):
+     Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+   
+   - Run installer:
+     .\install.ps1
+   
+   - Follow the prompts to enter:
+     * Telegram Bot Token
+     * Your Telegram User ID
+     * Report time (default: 19:00)
+
+3. VERIFY INSTALLATION
+   - Open Telegram
+   - Find your bot
+   - Send /start
+   - You should receive a welcome message
+
+TROUBLESHOOTING:
+  - If service doesn't start, check logs at:
+    C:\ProgramData\Microsoft\NetworkDiagnostics\Logs
+
+  - To uninstall:
+    .\uninstall.ps1
+
+SUPPORT:
+  - Check README.txt for detailed documentation
+  - Logs are in C:\ProgramData\Microsoft\NetworkDiagnostics\Logs
+
+======================================================================

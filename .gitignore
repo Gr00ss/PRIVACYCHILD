@@ -32,6 +32,7 @@ bld/
 *.nuget.targets
 
 # Sensitive data
+appsettings.json
 appsettings.Production.json
 appsettings.Development.json
 *.db

@@ -1,7 +1,8 @@
 # ======================================================================
-# WINDOWS FAMILY MONITOR - INSTALLATION SCRIPT (Task Scheduler)
+# WINDOWS FAMILY MONITOR - INSTALLATION SCRIPT
 # ======================================================================
-# This script installs the Windows Family Monitor as Task Scheduler task
+# This script installs the Windows Family Monitor via Task Scheduler
+# to ensure proper access to user desktop and active windows
 # Run as Administrator
 # ======================================================================
 
@@ -23,7 +24,7 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 }
 
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host "  Windows Family Monitor - Installation (Task Scheduler Mode)" -ForegroundColor Cyan
+Write-Host "  Windows Family Monitor - Installation" -ForegroundColor Cyan
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ""
 

@@ -53,7 +53,7 @@ public class Program
 
     private static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
-            // Removed UseWindowsService - running as regular application for user session access
+            .UseWindowsService()
             .UseSerilog()
             .ConfigureServices((hostContext, services) =>
             {
