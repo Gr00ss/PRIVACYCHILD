@@ -202,8 +202,9 @@ $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 # Create action
 $action = New-ScheduledTaskAction -Execute $destExe -WorkingDirectory $installDir
 
-# Create trigger - at logon
+# Create trigger - at logon with 10 minute delay
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+$trigger.Delay = "PT10M"  # ISO 8601 duration: 10 minutes
 
 # Create settings
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Hours 0)
